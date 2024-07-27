@@ -20,9 +20,25 @@ using namespace llvm::cl;
 class CheckerASTVisitor : public RecursiveASTVisitor<CheckerASTVisitor>
 {
 public:
+    bool VisitParmVarDecl(VarDecl *vardecl) {
+        //std::cout << "visit var decl" << std::endl;
+        const auto name = vardecl->getNameAsString();
+        if (name.length() >= 8) {
+            // Get the diagnostic engine
+            auto &DE = vardecl->getASTContext().getDiagnostics();
+            // Create custom error message
+            auto diagID = DE.getCustomDiagID(
+                DiagnosticsEngine::Error,
+                "var name too long!");
+            // Report our custom error
+            DE.Report(vardecl->getLocation(), diagID);
+        }
+        return true;
+    };
+
     auto VisitFunctionDecl(FunctionDecl *f) -> bool
     {
-        // Get function name
+        //std::cout << "Check function name" << std::endl;
         const auto name = f->getNameAsString();
         // Check if name contains _ at any position
         if (name.find("_") != std::string::npos)
@@ -35,6 +51,22 @@ public:
                 "Function name contains `_`.");
             // Report our custom error
             DE.Report(f->getLocation(), diagID);
+        }
+        return true;
+    }
+
+    bool VisitCXXRecordDecl(CXXRecordDecl *D)
+    {
+        // Get number of bases classes
+        auto number_of_bases = D->getNumBases();
+        // Check if number of bases is bigger than one
+        if (number_of_bases > 1)
+        {
+            // Report custom error message like the last check
+            auto &DE = D->getASTContext().getDiagnostics();
+            auto diagID = DE.getCustomDiagID(
+                DiagnosticsEngine::Error, "Class inhiert from more than one class.");
+            auto DB = DE.Report(D->getLocation(), diagID);
         }
         return true;
     }
